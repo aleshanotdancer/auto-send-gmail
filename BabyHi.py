@@ -6,8 +6,8 @@ def force_exit():
     sys.exit()
 
 def run_setup_wizard():
-    print("\n--- [Security Setup Wizard] ---")
-    raw_baby = input("Enter your Baby (Gmail App Password): ").strip()
+    print("\n--- [Baby and Key Setup Wizard] ---")
+    raw_baby = input("Enter your Baby (Gmail App Pass): ").strip()
     if not raw_baby:
         print("⚠️ No value entered. Cancelled.")
         return
