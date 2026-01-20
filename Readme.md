@@ -16,7 +16,7 @@ List of setup for environment to run:
 - python package: pandas, requests, python-dotenv, cryptography
 
 Setup:
-1. Installing python and it's package listed first to run. If already has then skip this step.
+1. Installing python and it's package listed above first to run. If already has then skip this step.
 2. Create a google spreadsheet file to store data following example: https://docs.google.com/spreadsheets/d/1sKRQDGanb-EhVrtN2mqUgSC2zMjEsK2TWGfbWYTykdU/
 3. Open CMD (if using Window)/Open termux (using Android) then 'cd' to moving forward to the folder
 4. Type then enter: python main.py 
