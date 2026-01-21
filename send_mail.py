@@ -1,4 +1,4 @@
-import os, requests, pandas as pd, io, smtplib, time
+import os, requests, pandas as pd, io, smtplib, time, re
 from email.message import EmailMessage
 from BabyBye import get_secret_baby
 from dotenv import load_dotenv
@@ -10,7 +10,6 @@ def fetch_sheet(url):
             response = requests.get(url, timeout=10)
             response.raise_for_status()
             raw_data = response.content.decode('utf-8-sig')
-            # Using header=None so we can search the entire sheet including the first row
             return pd.read_csv(io.StringIO(raw_data), keep_default_na=False, header=None)
         except Exception as e:
             if attempt < 2:
@@ -37,17 +36,14 @@ def run_job():
             base_url = os.getenv("SOURCE_SHEET").strip().rstrip('/')
             export_base = f"{base_url}/export?format=csv"
             
-            # --- 1. GET SIGNATURE FROM SUMMARY SHEET ---
             summary_url = f"{export_base}&gid={os.getenv('GID_SUMMARY', '0')}"
             summary_df = fetch_sheet(summary_url)
             
             signature_html = ""
             found_sig = False
             for _, s_row in summary_df.iterrows():
-                # Search every cell in the row for the keyword
                 for i, cell_value in enumerate(s_row):
                     if "emailsignature" in str(cell_value).lower().replace(" ", ""):
-                        # Take the cell to the right
                         if i + 1 < len(s_row):
                             signature_html = str(s_row[i + 1])
                             found_sig = True
@@ -55,15 +51,11 @@ def run_job():
                 if found_sig: break
             
             if not found_sig:
-                print("⚠️ Warning: Could not find cell labeled 'emailSignature' in Summary sheet.")
-                signature_html = "<br><br>Sincerely"
+                signature_html = "Sincerely"
 
-            # --- 2. FETCH TEMPLATE & LIST ---
-            # Re-fetching with headers for Template and List
             template_url = f"{export_base}&gid={os.getenv('GID_TEMPLATE')}"
             list_url = f"{export_base}&gid={os.getenv('GID_LIST')}"
 
-            # Standard fetch (with headers)
             t_resp = requests.get(template_url)
             template_df = pd.read_csv(io.StringIO(t_resp.content.decode('utf-8-sig')), keep_default_na=False)
             
@@ -74,7 +66,6 @@ def run_job():
         except Exception as e:
             print(f"❌ Data Error: {e}"); continue
 
-        # --- 3. SMART FILTERING ---
         list_df['Receiver'] = list_df['Receiver'].astype(str).str.strip()
         list_df['Status'] = list_df['Status'].astype(str).str.strip().str.lower()
         
@@ -89,20 +80,10 @@ def run_job():
         if total_to_send == 0:
             print("\n💡 INFO: Found 0 rows matching criteria."); continue
 
-        # Cooldown & Login (Rest of your original base logic)
         env_val = os.getenv("COOLDOWN", "0")
         env_cd = int(env_val) if env_val.isdigit() else 0
         effective_cd = env_cd if env_cd >= 1 else 2
-        use_cooldown = False
-
-        if total_to_send > 50:
-            use_cooldown = True
-        elif mode != "4" and total_to_send <= 1:
-            use_cooldown = False
-        else:
-            raw_ans = input(f"❓ Batch size is {total_to_send}. Use cooldown ({effective_cd}s)? (y/n): ").strip()
-            if not raw_ans: continue 
-            if raw_ans.lower() == 'y': use_cooldown = True
+        use_cooldown = total_to_send > 50
 
         baby = get_secret_baby()
         try:
@@ -131,21 +112,43 @@ def run_job():
                 n_name = str(row.get('Name', '')).strip().title()
                 v_key = str(row.get('Key', '')).strip()
 
-                req = {"Fullname": f_name, "Name": n_name, "Pronoun": p_raw, "Key": v_key}
-                missing = [p for p, v in req.items() if f"{{{p}}}" in (body_tpl + subj_tpl) and not v]
-                if missing: continue
-
                 p_l, p_c = p_raw.lower(), p_raw.capitalize()
                 final_subj = subj_tpl.format(Name=n_name, Pronoun=p_l, CPronoun=p_c)
-                final_body = (f"Dear {f_name},\n\n" + body_tpl).format(Name=n_name, Pronoun=p_l, CPronoun=p_c, Key=v_key, Fullname=f_name)
+                
+                # 1. Formatting
+                formatted_body = body_tpl.format(Name=n_name, Pronoun=p_l, CPronoun=p_c, Key=v_key, Fullname=f_name)
+
+                # 2. THE GAP CLEANER:
+                # Remove newlines that are immediately next to an HTML tag start or end
+                # This prevents "Double Spacing"
+                cleaned_body = re.sub(r'\n\s*<', '<', formatted_body)
+                cleaned_body = re.sub(r'>\s*\n', '>', cleaned_body)
+
+                # 3. Indent handling
+                html_body = cleaned_body.replace("    ", "&nbsp;&nbsp;&nbsp;&nbsp;")
+                html_body = html_body.replace("  ", "&nbsp;&nbsp;")
+                
+                # 4. Final Newline conversion
+                html_body = html_body.replace("\n", "<br>")
 
                 msg = EmailMessage()
                 msg['From'] = os.getenv("EMAIL_USER")
                 msg['To'] = receiver_email
                 msg['Subject'] = final_subj
-                msg.set_content(final_body)
-                msg.add_alternative(final_body.replace("\n", "<br>") + "<br><br>" + signature_html, subtype='html')
+                
+                msg.set_content(f"Dear {f_name},\n\n{formatted_body}\n\n{signature_html}")
+                
+                # Added 'margin:0' to the style to tighten up the spacing further
+                html_content = f"""
+                <div style="font-family: sans-serif; font-size: 14px; line-height: 1.5; color: #000;">
+                    <p style="margin:0;">Dear {f_name},</p><br>
+                    <div style="margin:0;">{html_body}</div>
+                    <br>
+                    <div style="margin:0;">{signature_html}</div>
+                </div>
+                """
 
+                msg.add_alternative(html_content, subtype='html')
                 server.send_message(msg)
                 print(f"[{index+1}] SUCCESS: {receiver_email}")
                 sent_count += 1
@@ -156,7 +159,7 @@ def run_job():
                 print(f"[{index+1}] FAILED: {receiver_email} | {e}")
 
         server.quit()
-        print(f"\n--- Job Finished. Sent {sent_count} targeted emails. ---\n")
+        print(f"\n--- Job Finished. Sent {sent_count} emails. ---\n")
 
 if __name__ == "__main__":
     run_job()
