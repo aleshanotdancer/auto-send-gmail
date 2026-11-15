@@ -21,7 +21,7 @@ def run_setup_wizard():
     while True:
         choice = input("Save to .env? [Y]es / [N]o / [X] Stop Tool: ").strip().lower()
         if choice == 'y':
-            from main import set_key, ENV_PATH
+            from autoGMail.main import set_key, ENV_PATH
             set_key(ENV_PATH, "BABY_KEY", key.decode())
             set_key(ENV_PATH, "ENCRYPTED_BABY", enc.decode())
             print("✅ .env updated.")

@@ -1,8 +1,8 @@
 import os
 import sys
 from dotenv import load_dotenv, set_key
-import BabyHi    
-import send_mail  
+import autoGMail.BabyHi as BabyHi    
+import autoGMail.send_mail as send_mail  
 
 ENV_PATH = ".env"
 load_dotenv(ENV_PATH)

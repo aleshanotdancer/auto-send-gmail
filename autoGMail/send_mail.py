@@ -1,6 +1,6 @@
 import os, requests, pandas as pd, io, smtplib, time, re
 from email.message import EmailMessage
-from BabyBye import get_secret_baby
+from autoGMail.BabyBye import get_secret_baby
 from dotenv import load_dotenv
 
 def fetch_sheet(url):
