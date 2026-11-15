@@ -1,9 +1,9 @@
 Special remind:
 - Only working with google mail, password used is the app password (search google to find how to get app password)
 - Sample of file spreadsheet: https://docs.google.com/spreadsheets/d/1sKRQDGanb-EhVrtN2mqUgSC2zMjEsK2TWGfbWYTykdU/
-- File spreadsheet must turn on share to allow code view data.
+- File spreadsheet must turn on share public to allow code can view and get data.
 - Signature can using html structure for beauty. Set in Summary sheet
-- Mail structure are harshed code that started with: "Dear {Fullname},". The body in file spreadsheet is the text after the Dear ... line.
+- Mail structure are harshed code that started with: "Dear {Fullname},". The body in file spreadsheet is the line text reight after the Dear ... line.
 - Body text allow using html tag like <b></b>...
 - File in mail template not yet using in code (update later)
 - Using fullname, name, pronoun, key in body mail must write with first letter capitalized and placed inside {}. Eg: {Fullname} 
